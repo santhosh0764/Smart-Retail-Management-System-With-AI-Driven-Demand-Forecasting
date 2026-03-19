@@ -42,9 +42,9 @@ export default function Login() {
     <div className="login-page">
       <div className="login-box">
         <div className="login-logo">
-          <div className="logo-icon">SF</div>
-          <h1>Smart</h1>
-          <p>Retail Management System</p>
+          <div className="logo-icon">SR</div>
+          <h1>Smart Retail </h1>
+          <p>Management System</p>
         </div>
 
         <div className="login-tabs">
@@ -94,11 +94,11 @@ export default function Login() {
               <div className="role-cards">
                 <div className={`role-card ${form.role === 'admin' ? 'selected' : ''}`} onClick={() => set('role', 'admin')}>
                   <h4>Admin / Owner</h4>
-                  <p>Full access to everything</p>
+                  {/* <p>Full access to everything</p> */}
                 </div>
                 <div className={`role-card ${form.role === 'staff' ? 'selected' : ''}`} onClick={() => set('role', 'staff')}>
                   <h4>Staff Member</h4>
-                  <p>Billing / POS only</p>
+                  {/* <p>Billing / POS only</p> */}
                 </div>
               </div>
             </div>
