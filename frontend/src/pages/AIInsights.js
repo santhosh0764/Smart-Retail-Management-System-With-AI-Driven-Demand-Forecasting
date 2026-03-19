@@ -73,7 +73,7 @@ export default function AIInsights() {
       {loading && (
         <div className="card" style={{ padding: 48, textAlign: 'center' }}>
           <div style={{ width: 48, height: 48, border: '3px solid var(--green-mid)', borderTopColor: 'var(--green)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 16px' }}></div>
-          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Gemini is analysing your store...</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>AI is analysing your store...</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Reading your products, sales history, and inventory data</p>
         </div>
       )}
@@ -96,7 +96,7 @@ export default function AIInsights() {
           {isGroq && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, fontSize: 12, color: 'var(--green)', fontWeight: 500 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--green)"><path d="M12 2L13.09 8.26L19 6L15.45 11.27L22 12L15.45 12.73L19 18L13.09 15.74L12 22L10.91 15.74L5 18L8.55 12.73L2 12L8.55 11.27L5 6L10.91 8.26L12 2Z"/></svg>
-              Analysis powered by Smart AI Engine — using your real live store data. No API key needed.
+              Analysis powered by Smart AI Engine — using your real live store data.
             </div>
           )}
 
@@ -162,7 +162,7 @@ export default function AIInsights() {
             </svg>
           </div>
           <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>Ready to Analyse</h3>
-          <p style={{ fontSize: 13 }}>Click <strong>"Analyse My Store"</strong> to get real AI-powered insights<br />from Google Gemini based on your live store data</p>
+          <p style={{ fontSize: 13 }}>Click <strong>"Analyse My Store"</strong></p>
         </div>
       )}
     </div>

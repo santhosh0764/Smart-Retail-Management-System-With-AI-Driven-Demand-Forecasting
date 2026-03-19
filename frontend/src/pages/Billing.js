@@ -134,8 +134,8 @@ export default function Billing() {
             </div>
             <div className="receipt">
               <div className="receipt-header">
-                <h2>StockFlow</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Retail Store</p>
+                <h2>Smart Retail</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Management System</p>
                 <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{receipt.date}</p>
               </div>
               <hr className="receipt-divider" />

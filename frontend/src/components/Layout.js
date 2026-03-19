@@ -19,8 +19,8 @@ export default function Layout() {
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <h1>StockFlow</h1>
-          <p>Retail Management</p>
+          <h1>Smart</h1>
+          <p>Retail Management System</p>
         </div>
         <div className="sidebar-user">
           <div className="role-badge">
@@ -88,7 +88,7 @@ export default function Layout() {
         <header className="topbar">
           <div className="topbar-left">
             <h2>Welcome back, {user?.name}!</h2>
-            <p>{isAdmin ? 'Admin / Owner — Full Access' : 'Staff Member — Billing & Reports'}</p>
+            {/* <p>{isAdmin ? 'Admin / Owner — Full Access' : 'Staff Member — Billing & Reports'}</p> */}
           </div>
           <div className="topbar-right">
             <div className="user-info">

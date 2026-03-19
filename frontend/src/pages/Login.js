@@ -43,7 +43,7 @@ export default function Login() {
       <div className="login-box">
         <div className="login-logo">
           <div className="logo-icon">SF</div>
-          <h1>StockFlow</h1>
+          <h1>Smart</h1>
           <p>Retail Management System</p>
         </div>
 
