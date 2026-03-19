@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # StockFlow — Retail Management System
 
 A full-stack retail management system built with **React** (frontend) and **Python Flask + SQLite** (backend).
@@ -135,3 +136,7 @@ Frontend runs on: **http://localhost:3000**
 | GET | /api/users | List all users (admin) |
 | DELETE | /api/users/:id | Delete user (admin) |
 | GET | /api/ai/suggestions | AI insights & forecast |
+=======
+# Smart-Retail-Management-System-With-AI-Driven-Demand-Forecasting
+Smart Retail Management System With AI Driven Demand Forecasting Using React + Python
+>>>>>>> 0dd864c364fd181b28d754a0c90aec77cf61c0d8
