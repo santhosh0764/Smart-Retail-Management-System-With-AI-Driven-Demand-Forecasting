@@ -133,7 +133,8 @@ def generate_smart_insights(db):
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'stockflow_secret_key_2024'
-CORS(app, origins=["http://localhost:3000"])
+# CORS(app, origins=["http://localhost:3000"])
+CORS(app, origins=["*"])
 init_db()
 
 def token_required(f):
@@ -501,4 +502,6 @@ def ai_suggestions():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
