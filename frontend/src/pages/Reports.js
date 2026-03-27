@@ -52,7 +52,7 @@ export default function Reports() {
       {data && (
         <div className="card" style={{ padding: 28 }}>
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--green)' }}>StockFlow</h2>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--green)' }}>Smart</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Retail Management System</p>
             <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>Generated on {today}</p>
           </div>

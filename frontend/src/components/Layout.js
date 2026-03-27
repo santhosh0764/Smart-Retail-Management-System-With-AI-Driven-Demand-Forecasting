@@ -24,7 +24,7 @@ export default function Layout() {
 
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
-          <h1>StockFlow</h1>
+          <h1>Smart</h1>
           <p>Retail Management</p>
         </div>
         <div className="sidebar-user">

@@ -129,11 +129,88 @@ def generate_smart_insights(db):
         })
 
     return summary, suggestions[:5], forecast[:6]
+
+# ─── REORDER SUGGESTIONS ENGINE ──────────────────────────────────────────────
+def generate_reorder_suggestions(db):
+    all_products = db.execute('SELECT * FROM products').fetchall()
+    sales_data = db.execute('''
+        SELECT p.id, p.name, p.category, p.price, p.cost_price, p.stock, p.unit,
+               COALESCE(SUM(si.quantity), 0) as total_sold,
+               COUNT(DISTINCT s.id) as num_sales
+        FROM products p
+        LEFT JOIN sale_items si ON si.product_id = p.id
+        LEFT JOIN sales s ON s.id = si.sale_id
+        GROUP BY p.id
+    ''').fetchall()
+
+    reorders = []
+    for p in sales_data:
+        total_sold = p['total_sold'] or 0
+        current_stock = p['stock']
+        num_sales = p['num_sales'] or 0
+
+        # Calculate daily sales velocity
+        # Assume sales span over last 30 days
+        daily_velocity = round(total_sold / 30, 2) if total_sold > 0 else 0
+
+        # Days until stockout
+        if daily_velocity > 0:
+            days_until_stockout = round(current_stock / daily_velocity)
+        else:
+            days_until_stockout = 999  # never if no sales
+
+        # Recommended reorder quantity
+        # = 30 days of stock + safety buffer of 20%
+        if daily_velocity > 0:
+            reorder_qty = round((daily_velocity * 30) * 1.2)
+        else:
+            # For unsold items — suggest minimum reorder
+            reorder_qty = 20
+
+        # Reorder cost
+        reorder_cost = round(reorder_qty * p['cost_price'], 2)
+
+        # Expected stock after reorder
+        expected_stock = current_stock + reorder_qty
+
+        # Urgency level
+        if current_stock <= 5:
+            urgency = 'critical'
+        elif current_stock <= 10:
+            urgency = 'high'
+        elif days_until_stockout <= 14:
+            urgency = 'medium'
+        else:
+            urgency = 'low'
+
+        # Status message
+        if daily_velocity > 0:
+            status = f"Selling {daily_velocity}/day — stockout in ~{days_until_stockout} days"
+        else:
+            status = "No sales yet — minimum stock recommended"
+
+        reorders.append({
+            'name': p['name'],
+            'category': p['category'],
+            'current_stock': current_stock,
+            'unit': p['unit'],
+            'daily_velocity': daily_velocity,
+            'days_until_stockout': days_until_stockout if days_until_stockout != 999 else None,
+            'reorder_quantity': reorder_qty,
+            'reorder_cost': reorder_cost,
+            'expected_stock': expected_stock,
+            'urgency': urgency,
+            'status': status,
+        })
+
+    # Sort by urgency — critical first
+    urgency_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
+    reorders.sort(key=lambda x: urgency_order.get(x['urgency'], 4))
+    return reorders
 # ─────────────────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'stockflow_secret_key_2024'
-# CORS(app, origins=["http://localhost:3000"])
 CORS(app, origins=["*"])
 init_db()
 
@@ -252,15 +329,23 @@ def delete_product(pid):
 @app.route('/api/sales', methods=['POST'])
 @token_required
 def create_sale():
+    from datetime import datetime, timezone, timedelta
     data = request.json
     customer = data.get('customer', 'Walk-in Customer')
     items = data.get('items', [])
     subtotal = data.get('subtotal', 0)
     gst = data.get('gst', 0)
     total = data.get('total', 0)
+
+    # Save sale_date as IST (UTC+5:30) to fix date filter issues
+    IST = timezone(timedelta(hours=5, minutes=30))
+    ist_now = datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')
+
     db = get_db()
-    cursor = db.execute('INSERT INTO sales (customer_name, subtotal, gst, total, created_by) VALUES (?,?,?,?,?)',
-                        (customer, subtotal, gst, total, request.user['user_id']))
+    cursor = db.execute(
+        'INSERT INTO sales (customer_name, subtotal, gst, total, created_by, sale_date) VALUES (?,?,?,?,?,?)',
+        (customer, subtotal, gst, total, request.user['user_id'], ist_now)
+    )
     sale_id = cursor.lastrowid
     for item in items:
         db.execute('INSERT INTO sale_items (sale_id, product_id, product_name, quantity, price) VALUES (?,?,?,?,?)',
@@ -407,30 +492,76 @@ def get_profit():
     try:
         db = get_db()
         period = request.args.get('period', 'all')
-        date_filter = ""
+
+        # Use EXACT same filter as Reports route which works correctly
+        where = ""
         if period == 'today':
-            date_filter = "AND date(s.sale_date) = date('now')"
+            where = "WHERE date(sale_date, 'localtime') = date('now', 'localtime')"
         elif period == 'week':
-            date_filter = "AND date(s.sale_date) >= date('now', '-7 days')"
+            where = "WHERE date(sale_date, 'localtime') >= date('now', 'localtime', '-7 days')"
         elif period == 'month':
-            date_filter = "AND strftime('%Y-%m', s.sale_date) = strftime('%Y-%m', 'now')"
-        rev_row = db.execute(f"SELECT COALESCE(SUM(total),0) as revenue, COUNT(*) as sales_count FROM sales WHERE 1=1 {date_filter}").fetchone()
-        revenue = float(rev_row['revenue'] or 0)
+            where = "WHERE strftime('%Y-%m', sale_date, 'localtime') = strftime('%Y-%m', 'now', 'localtime')"
+
+        # For JOIN queries replace WHERE with AND and prefix s.
+        join_where = ""
+        if period == 'today':
+            join_where = "AND date(s.sale_date, 'localtime') = date('now', 'localtime')"
+        elif period == 'week':
+            join_where = "AND date(s.sale_date, 'localtime') >= date('now', 'localtime', '-7 days')"
+        elif period == 'month':
+            join_where = "AND strftime('%Y-%m', s.sale_date, 'localtime') = strftime('%Y-%m', 'now', 'localtime')"
+
+        # Revenue — EXACT same as reports route
+        rev_row = db.execute(
+            f"SELECT COALESCE(SUM(total),0) as revenue, COUNT(*) as sales_count FROM sales {where}"
+        ).fetchone()
+        revenue     = float(rev_row['revenue'] or 0)
         sales_count = int(rev_row['sales_count'] or 0)
+
+        # Profit — JOIN query
         profit = 0.0
-        for r in db.execute(f"SELECT si.price, si.quantity, p.cost_price FROM sale_items si JOIN products p ON si.product_id=p.id JOIN sales s ON si.sale_id=s.id WHERE 1=1 {date_filter}").fetchall():
+        rows = db.execute(
+            f"SELECT si.price, si.quantity, p.cost_price "
+            f"FROM sale_items si "
+            f"JOIN products p ON si.product_id = p.id "
+            f"JOIN sales s ON si.sale_id = s.id "
+            f"WHERE 1=1 {join_where}"
+        ).fetchall()
+        for r in rows:
             profit += (r['price'] - r['cost_price']) * r['quantity']
+
         profit_margin = round((profit / revenue * 100), 1) if revenue > 0 else 0.0
-        inv_row = db.execute("SELECT COALESCE(SUM(cost_price*stock),0) as total_cost, COALESCE(SUM(price*stock),0) as selling_value FROM products").fetchone()
-        total_cost = float(inv_row['total_cost'] or 0)
-        selling_value = float(inv_row['selling_value'] or 0)
-        potential = round(selling_value - total_cost, 2)
-        avg_margin = round((potential / selling_value * 100), 1) if selling_value > 0 else 0.0
-        breakdown = db.execute("SELECT name, cost_price, price, (price-cost_price) as profit_per_unit, ROUND(((price-cost_price)*1.0/price*100),1) as margin, ((price-cost_price)*stock) as stock_profit FROM products ORDER BY margin DESC").fetchall()
-        return jsonify({'revenue': round(revenue, 2), 'profit': round(profit, 2), 'profit_margin': profit_margin,
-                        'sales_count': sales_count, 'total_cost': round(total_cost, 2),
-                        'selling_value': round(selling_value, 2), 'potential_profit': potential,
-                        'avg_margin': avg_margin, 'breakdown': [dict(b) for b in breakdown]})
+
+        # Inventory potential (always full stock, no date filter)
+        inv = db.execute(
+            "SELECT COALESCE(SUM(cost_price*stock),0) as tc, "
+            "COALESCE(SUM(price*stock),0) as sv FROM products"
+        ).fetchone()
+        total_cost    = float(inv['tc'] or 0)
+        selling_value = float(inv['sv'] or 0)
+        potential     = round(selling_value - total_cost, 2)
+        avg_margin    = round((potential / selling_value * 100), 1) if selling_value > 0 else 0.0
+
+        # Per-product breakdown
+        breakdown = db.execute(
+            "SELECT name, cost_price, price,"
+            " (price-cost_price) as profit_per_unit,"
+            " ROUND(((price-cost_price)*1.0/price*100),1) as margin,"
+            " ((price-cost_price)*stock) as stock_profit"
+            " FROM products ORDER BY margin DESC"
+        ).fetchall()
+
+        return jsonify({
+            'revenue':          round(revenue, 2),
+            'profit':           round(profit, 2),
+            'profit_margin':    profit_margin,
+            'sales_count':      sales_count,
+            'total_cost':       round(total_cost, 2),
+            'selling_value':    round(selling_value, 2),
+            'potential_profit': potential,
+            'avg_margin':       avg_margin,
+            'breakdown':        [dict(b) for b in breakdown]
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -444,13 +575,13 @@ def get_report():
         period = request.args.get('period', 'week')
         date_filter = ""
         if period == 'today':
-            date_filter = "WHERE date(sale_date) = date('now')"
+            date_filter = "WHERE date(sale_date, 'localtime') = date('now', 'localtime')"
         elif period == 'week':
-            date_filter = "WHERE date(sale_date) >= date('now', '-7 days')"
+            date_filter = "WHERE date(sale_date, 'localtime') >= date('now', 'localtime', '-7 days')"
         elif period == 'month':
-            date_filter = "WHERE strftime('%Y-%m', sale_date) = strftime('%Y-%m', 'now')"
+            date_filter = "WHERE strftime('%Y-%m', sale_date, 'localtime') = strftime('%Y-%m', 'now', 'localtime')"
         elif period == 'year':
-            date_filter = "WHERE strftime('%Y', sale_date) = strftime('%Y', 'now')"
+            date_filter = "WHERE strftime('%Y', sale_date, 'localtime') = strftime('%Y', 'now', 'localtime')"
         if report_type == 'sales':
             summary_row = db.execute(f"SELECT COALESCE(SUM(total),0) as total_sales, COUNT(*) as transactions, COALESCE(AVG(total),0) as avg_transaction FROM sales {date_filter}").fetchone()
             transactions = db.execute(f'SELECT * FROM sales {date_filter} ORDER BY sale_date DESC').fetchall()
@@ -492,10 +623,12 @@ def ai_suggestions():
     try:
         db = get_db()
         summary, suggestions, forecast = generate_smart_insights(db)
+        reorders = generate_reorder_suggestions(db)
         return jsonify({
             'summary': summary,
             'suggestions': suggestions,
             'forecast': forecast,
+            'reorders': reorders,
             'powered_by': 'smart'
         })
     except Exception as e:

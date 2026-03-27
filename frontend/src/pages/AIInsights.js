@@ -50,8 +50,8 @@ export default function AIInsights() {
               <h3 style={{ fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                 Real AI Insights
                 <span style={{ background: '#e8f8f1', color: 'var(--green)', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--green)"><path d="M12 2L13.09 8.26L19 6L15.45 11.27L22 12L15.45 12.73L19 18L13.09 15.74L12 22L10.91 15.74L5 18L8.55 12.73L2 12L8.55 11.27L5 6L10.91 8.26L12 2Z"/></svg>
-                  Smart AI Engine
+                  {/* <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--green)"><path d="M12 2L13.09 8.26L19 6L15.45 11.27L22 12L15.45 12.73L19 18L13.09 15.74L12 22L10.91 15.74L5 18L8.55 12.73L2 12L8.55 11.27L5 6L10.91 8.26L12 2Z"/></svg> */}
+                  
                 </span>
               </h3>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
@@ -95,8 +95,8 @@ export default function AIInsights() {
 
           {isGroq && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, fontSize: 12, color: 'var(--green)', fontWeight: 500 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--green)"><path d="M12 2L13.09 8.26L19 6L15.45 11.27L22 12L15.45 12.73L19 18L13.09 15.74L12 22L10.91 15.74L5 18L8.55 12.73L2 12L8.55 11.27L5 6L10.91 8.26L12 2Z"/></svg>
-              Analysis powered by Smart AI Engine — using your real live store data.
+              {/* <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--green)"><path d="M12 2L13.09 8.26L19 6L15.45 11.27L22 12L15.45 12.73L19 18L13.09 15.74L12 22L10.91 15.74L5 18L8.55 12.73L2 12L8.55 11.27L5 6L10.91 8.26L12 2Z"/></svg> */}
+              
             </div>
           )}
 
