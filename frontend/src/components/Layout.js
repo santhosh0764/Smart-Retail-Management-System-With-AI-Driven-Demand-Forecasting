@@ -68,7 +68,7 @@ export default function Layout() {
           </button>
           <div className="topbar-left">
             <h2>Welcome back, {user?.name}!</h2>
-            <p>{isAdmin ? 'Admin / Owner — Full Access' : 'Staff Member — Billing & Reports'}</p>
+            <p>{isAdmin ? 'Admin / Owner' : 'Staff Member'}</p>
           </div>
           <div className="topbar-right">
             <div className="user-info">
