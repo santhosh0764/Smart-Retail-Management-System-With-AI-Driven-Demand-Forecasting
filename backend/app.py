@@ -634,7 +634,138 @@ def ai_suggestions():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ─── DYNAMIC PRICE OPTIMIZATION ENGINE ───────────────────────────────────────
+def optimize_price(product, units_sold, avg_sold):
+    current_price = float(product['price'])
+    cost_price    = float(product['cost_price'])
+    stock         = int(product['stock'])
+    name          = product['name']
+
+    if units_sold == 0:
+        demand = 'none'
+    elif units_sold >= avg_sold * 1.5:
+        demand = 'high'
+    elif units_sold >= avg_sold * 0.5:
+        demand = 'moderate'
+    else:
+        demand = 'low'
+
+    if stock <= 5:
+        stock_level = 'critical'
+    elif stock <= 10:
+        stock_level = 'low'
+    elif stock <= 25:
+        stock_level = 'moderate'
+    else:
+        stock_level = 'high'
+
+    adjustment = 0.0
+    reasons = []
+
+    if demand == 'high':
+        adjustment += 10.0
+        reasons.append('High demand — product is selling fast')
+    elif demand == 'moderate':
+        adjustment += 2.0
+        reasons.append('Moderate demand — stable sales')
+    elif demand == 'low':
+        adjustment -= 8.0
+        reasons.append('Low demand — price reduction recommended to attract buyers')
+    elif demand == 'none':
+        adjustment -= 12.0
+        reasons.append('No sales recorded — significant discount recommended')
+
+    if stock_level == 'critical':
+        adjustment += 8.0
+        reasons.append('Critical low stock — scarcity justifies higher price')
+    elif stock_level == 'low':
+        adjustment += 4.0
+        reasons.append('Low stock — slight price increase recommended')
+    elif stock_level == 'high':
+        adjustment -= 6.0
+        reasons.append('Excess stock — reduce price to clear inventory faster')
+
+    optimized_price = round(current_price * (1 + adjustment / 100), 2)
+    min_price = round(cost_price * 1.05, 2)
+    if optimized_price < min_price:
+        optimized_price = min_price
+        reasons.append('Price floored at minimum margin (cost + 5%)')
+    max_price = round(current_price * 1.25, 2)
+    if optimized_price > max_price:
+        optimized_price = max_price
+        reasons.append('Price capped at 25% above current')
+
+    price_change     = round(optimized_price - current_price, 2)
+    price_change_pct = round((price_change / current_price) * 100, 1)
+
+    if price_change > 0:
+        tag = 'Increase Price'
+    elif price_change < 0:
+        tag = 'Decrease Price'
+    else:
+        tag = 'Keep Current Price'
+
+    return {
+        'product_name':     name,
+        'current_price':    current_price,
+        'optimized_price':  optimized_price,
+        'price_change':     price_change,
+        'price_change_pct': price_change_pct,
+        'recommendation':   tag,
+        'demand_level':     demand,
+        'stock_level':      stock_level,
+        'units_sold':       units_sold,
+        'current_stock':    stock,
+        'cost_price':       cost_price,
+        'reason':           ' | '.join(reasons) if reasons else 'Price is optimal',
+    }
+
+@app.route('/api/ai/price-optimize', methods=['GET'])
+@token_required
+def price_optimize():
+    try:
+        db = get_db()
+        product_name = request.args.get('product', '').strip()
+
+        # Get all sales data upfront
+        all_sales = db.execute(
+            'SELECT product_id, SUM(quantity) as total FROM sale_items GROUP BY product_id'
+        ).fetchall()
+        sales_map  = {row['product_id']: int(row['total']) for row in all_sales}
+        total_sold = sum(sales_map.values())
+
+        if product_name:
+            product = db.execute(
+                'SELECT * FROM products WHERE LOWER(name) LIKE LOWER(?)',
+                (f'%{product_name}%',)
+            ).fetchone()
+            if not product:
+                return jsonify({'error': f'Product "{product_name}" not found. Please check the name and try again.'}), 404
+            all_count  = db.execute('SELECT COUNT(*) as c FROM products').fetchone()['c']
+            units_sold = sales_map.get(product['id'], 0)
+            avg_sold   = total_sold / max(all_count, 1)
+            result     = optimize_price(dict(product), units_sold, avg_sold)
+            return jsonify({'type': 'single', 'result': result})
+        else:
+            all_products = db.execute('SELECT * FROM products ORDER BY name').fetchall()
+            if not all_products:
+                return jsonify({'error': 'No products found in database'}), 404
+            avg_sold = total_sold / max(len(all_products), 1)
+            results  = []
+            for p in all_products:
+                units = sales_map.get(p['id'], 0)
+                results.append(optimize_price(dict(p), units, avg_sold))
+            results.sort(key=lambda x: abs(x['price_change_pct']), reverse=True)
+            return jsonify({'type': 'all', 'count': len(results), 'results': results})
+
+    except Exception as e:
+        import traceback
+        print('PRICE OPTIMIZE ERROR:', traceback.format_exc())
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+# ──────────────────────────────────────────────────────────────────────────────
+
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    app.run(debug=debug, host='0.0.0.0', port=port)
